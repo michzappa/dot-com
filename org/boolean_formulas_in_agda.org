@@ -1,0 +1,167 @@
+#+title: Boolean Formulas in Agda
+
+In Spring 2022 I took "Logic and Computation" with [[https://www.ccs.neu.edu/~pete/][Prof. Pete Manolios]], "an introduction to formal logic and its deep connections to computing" using the [[http://acl2s.ccs.neu.edu/acl2s/doc/][ACL2 Sedan]]. During the course I was one of three students to complete an extra challenge of formalizing Boolean formulas in a programming language of our choice. I chose Agda, as I had been (and still am) slowly working through [[https://plfa.github.io/][Programming Language Foundations in Agda]]. This page is a literate re-creation of [[https://gitlab.com/michzappa/cs2800-challenges][my work]].
+
+Unfortunately there is no syntax highlighting for these code blocks since the Emacs =agda2-mode= only provides it when used interactively.
+
+#+begin_src agda2
+  module cs2800-challenges.BoolFm where
+
+  open import Data.Bool.Base using (Bool; true; false; if_then_else_; _∧_; _∨_) renaming (not to !_; _xor_ to _×_)
+  open import Data.Char.Base using (Char)
+  open import Data.Char.Properties using (_==_)
+  open import Data.List.Base using (List; []; _∷_)
+  open import Relation.Binary.PropositionalEquality using (_≡_; refl)
+#+end_src
+
+The evaluation of these formulas is performed with an additional environment, where all the variables in the assignment are =true= and all others are =false=.
+#+begin_src agda2
+assignment = List Char
+
+lookup : Char → assignment → Bool
+lookup v [] = false
+lookup v (x ∷ xs) with x == v
+... | true = true
+... | false = lookup v xs
+#+end_src
+
+If you give a mouse a boolean formula, he'll want to evaluate it. To reduce duplication, here are some dependently-typed helpers for boolean operators, making the yet-to-be-seen type-specific evaluation functions basically boilerplate.
+
+#+begin_src agda2
+  boolEval : Bool → Bool
+  boolEval b = b
+
+  varEval : Char → assignment → Bool
+  varEval v a = lookup v a
+
+  notEval : ∀ {Fm : Set} → (Fm → assignment → Bool) → Fm → assignment → Bool
+  notEval f p a = ! (f p a)
+
+  orEval : ∀ {Fm : Set} → (Fm → assignment → Bool) → Fm → Fm → assignment → Bool
+  orEval f p q a = (f p a) ∨ (f q a)
+
+  andEval : ∀ {Fm : Set} → (Fm → assignment → Bool) → Fm → Fm → assignment → Bool
+  andEval f p q a = (f p a) ∧ (f q a)
+
+  impliesEval : ∀ {Fm : Set} → (Fm → assignment → Bool) → Fm → Fm → assignment → Bool
+  impliesEval f p q a = (! (f p a)) ∨ (f q a)
+
+  equalEval : ∀ {Fm : Set} → (Fm → assignment → Bool) → Fm → Fm → assignment → Bool
+  equalEval f p q a = if f p a then f q a else ! (f q a)
+
+  xorEval : ∀ {Fm : Set} → (Fm → assignment → Bool) → Fm → Fm → assignment → Bool
+  xorEval f p q a = (f p a) × (f q a)
+
+  norEval : ∀ {Fm : Set} → (Fm → assignment → Bool) → Fm → Fm → assignment → Bool
+  norEval f p q a = ! ((f p a) ∨ (f q a))
+
+  nandEval : ∀ {Fm : Set} → (Fm → assignment → Bool) → Fm → Fm → assignment → Bool
+  nandEval f p q a = ! ((f p a) ∧ (f q a))
+#+end_src
+
+The most permissive boolean formula allows all operators, variables, and literal booleans in all locations.
+#+begin_src agda2
+  data BoolFm1 : Set where
+    bool : Bool → BoolFm1
+    var : Char → BoolFm1
+    not : BoolFm1 → BoolFm1
+    or : BoolFm1 → BoolFm1 → BoolFm1
+    and : BoolFm1 → BoolFm1 → BoolFm1
+    implies : BoolFm1 → BoolFm1 → BoolFm1
+    equal : BoolFm1 → BoolFm1 → BoolFm1
+    xor : BoolFm1 → BoolFm1 → BoolFm1
+    nor : BoolFm1 → BoolFm1 → BoolFm1
+    nand : BoolFm1 -> BoolFm1 -> BoolFm1
+
+  B1Eval : BoolFm1 → assignment → Bool
+  B1Eval (bool b) a = boolEval b
+  B1Eval (var v) a = varEval v a
+  B1Eval (not p) a = notEval B1Eval p a
+  B1Eval (or p q) a = orEval B1Eval p q a
+  B1Eval (and p q) a = andEval B1Eval p q a
+  B1Eval (implies p q) a = impliesEval B1Eval p q a
+  B1Eval (equal p q) a = equalEval B1Eval p q a
+  B1Eval (xor p q) a = xorEval B1Eval p q a
+  B1Eval (nor p q) a = norEval B1Eval p q a
+  B1Eval (nand p q) a = nandEval B1Eval p q a
+#+end_src
+
+But since all logical operators can be [[https://en.wikipedia.org/wiki/Logical_NOR#Other_Boolean_Operations_in_terms_of_the_Logical_NOR][defined in terms of nor]], why include all of them? (variables and literal booleans are still useful though).
+#+begin_src agda2
+  data NorFm : Set where
+    bool : Bool → NorFm
+    var : Char → NorFm
+    nor : NorFm → NorFm → NorFm
+
+  NorEval : NorFm → assignment → Bool
+  NorEval (bool b) a = boolEval b
+  NorEval (var v) a = varEval v a
+  NorEval (nor p q) a = norEval NorEval p q a
+#+end_src
+
+But we don't need literal boolean /everywhere/ - the only formulas in =NorCPFm= which contain =true= or =false= are =true= and =false= themselves. =NorNCFm= is used to help structure this definition, it is not by itself a proper boolean formula.
+#+begin_src agda2
+  data NorNCFm : Set where
+    var : Char → NorNCFm
+    nor : NorNCFm → NorNCFm → NorNCFm
+
+  data NorCPFm : Set where
+    bool : Bool → NorCPFm
+    NorNCCFm→NorCPFm : NorNCFm → NorCPFm
+
+  ConstPropNorFm : NorFm → NorCPFm
+  ConstPropNorFm (bool b) = bool b
+  ConstPropNorFm (var v) = NorNCCFm→NorCPFm (var v)
+  ConstPropNorFm (nor p q) with (ConstPropNorFm p) | (ConstPropNorFm q)
+  ... | bool true | _ = bool false
+  ... | _ | (bool true) = bool false
+  ... | bool false | bool false = bool true
+  ... | bool false | NorNCCFm→NorCPFm nq = NorNCCFm→NorCPFm (nor nq nq)
+  ... | NorNCCFm→NorCPFm np | bool false = NorNCCFm→NorCPFm (nor np np)
+  ... | NorNCCFm→NorCPFm np | NorNCCFm→NorCPFm nq = NorNCCFm→NorCPFm (nor np nq)
+
+  NorNCEval : NorNCFm → assignment → Bool
+  NorNCEval (var v) a = varEval v a
+  NorNCEval (nor p q) a = norEval NorNCEval p q a
+
+  NorCPEval : NorCPFm → assignment → Bool
+  NorCPEval (bool b) a = boolEval b
+  NorCPEval (NorNCCFm→NorCPFm p) a = NorNCEval p a
+#+end_src
+
+Finally, the most permissive type - which must be defined last to allow for a subtype-like relationship with the previously defined constructors. Agda does not easy mimic the "observation-based" type system of ACL2s, this is the best I came up with at the time.
+#+begin_src agda2
+  data BoolFm : Set where
+    bool : Bool → BoolFm
+    var : Char → BoolFm
+    not : BoolFm → BoolFm
+    or : BoolFm → BoolFm → BoolFm
+    and : BoolFm → BoolFm → BoolFm
+    implies : BoolFm → BoolFm → BoolFm
+    equal : BoolFm → BoolFm → BoolFm
+    xor : BoolFm → BoolFm → BoolFm
+    nor : BoolFm → BoolFm → BoolFm
+    nand : BoolFm → BoolFm → BoolFm
+    BoolFm1→BoolFm : BoolFm1 → BoolFm
+    NorFm→BoolFm : NorFm → BoolFm
+    NorNCFm→BoolFm : NorNCFm → BoolFm
+    NorCPFm→BoolFm : NorCPFm → BoolFm
+
+  BfEval : BoolFm → assignment → Bool
+  BfEval (bool b) a = boolEval b
+  BfEval (var v) a = varEval v a
+  BfEval (not p) a = notEval BfEval p a
+  BfEval (or p q) a = orEval BfEval p q a
+  BfEval (and p q) a = andEval BfEval p q a
+  BfEval (implies p q) a = impliesEval BfEval p q a
+  BfEval (equal p q) a = equalEval BfEval p q a
+  BfEval (xor p q) a = xorEval BfEval p q a
+  BfEval (nor p q) a = norEval BfEval p q a
+  BfEval (nand p q) a = nandEval BfEval p q a
+  BfEval (BoolFm1→BoolFm p) a = B1Eval p a
+  BfEval (NorFm→BoolFm p) a = NorEval p a
+  BfEval (NorNCFm→BoolFm p) a = NorNCEval p a
+  BfEval (NorCPFm→BoolFm p) a = NorCPEval p a
+#+end_src
+
+Using Agda to mimic a more "normal" language like the Common Lisp-derived ACL2s was an interesting exercise. It is definitely not as flexible and suffers for that with problems and data like these, especially when combined with my lack of familiarity. With my current level of knowledge I would not want to approach novel, complex problems with Agda but I think it is fun to formalize the behavior of existing programs or systems.

@@ -1,0 +1,35 @@
+html {
+    background-color: #160f0f;
+    color: #d8cfd5;
+    font-family: sans-serif;
+}
+
+body {
+    /* Center text while not ruining margins on mobile. */
+    font-size: 110%;
+    margin: 0 auto;
+    padding: 0 1em;
+    max-width: 60rem;
+}
+
+h1 {
+    /* Page dates right below page title. */
+    margin-bottom: 0em;
+}
+
+code { }
+
+/* Special styling for external links. */
+a[href*='//'] {
+    color:#ff85aa;
+}
+
+/* Logically, all other links are internal. */
+a {
+    color:#60bf88;
+}
+
+/* Styling for all links. */
+a:hover {
+    filter: brightness(80%);
+}

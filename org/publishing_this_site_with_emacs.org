@@ -1,0 +1,187 @@
+#+title: Publishing This Site With Emacs
+#+property: header-args :tangle ../publish.el :comments link
+
+This document is a literate program to configure a non-interactive [[https://www.gnu.org/software/emacs/][Emacs]] for publishing this site.
+
+* Setup
+** Required Packages
+The pages of this site are written in [[https://orgmode.org/][Org Mode]] and published to HTML with Org's export capability.
+#+begin_src emacs-lisp
+  (require 'ox-html)
+  (require 'ox-publish)
+#+end_src
+
+Emacs is used to generate HTML classes and CSS styles for source code blocks so the major modes for languages used in this site need to be loaded.
+#+begin_src emacs-lisp
+  (require 'lox-mode)
+  (require 'nix-mode)
+#+end_src
+
+** Patches
+*** =org-html-htmlize-generate-css=
+# Probably should email someone to see if this is necessitated by my setup or is more foundational...
+
+=org-html-htmlize-generate-css= generates CSS styles for the HTML classes created by =htmlize=. To do this it goes over all the faces in =(face-list)=, the first of which is ='default=. Unfortunately =(face-attribute 'default :inherit)= is demonstrably =nil=, which causes no other faces to be processed as the =while= loop terminates early.
+
+The solution seems to be just =pop='ing ='default= off of the faces list. I collect the desired subset of this function's output in [[file:../assets/source.css][source.css]].
+#+begin_src emacs-lisp
+  (defun org-html-htmlize-generate-css ()
+    "Create the CSS for all font definitions in the current Emacs session.
+  Use this to create face definitions in your CSS style file that can then
+  be used by code snippets transformed by htmlize.
+  This command just produces a buffer that contains class definitions for all
+  faces used in the current Emacs session.  You can copy and paste the ones you
+  need into your CSS file.
+
+  If you then set `org-html-htmlize-output-type' to `css', calls
+  to the function `org-html-htmlize-region-for-paste' will
+  produce code that uses these same face definitions."
+    (interactive)
+    (unless (require 'htmlize nil t)
+      (error "htmlize library missing.  Aborting"))
+    (and (get-buffer "*html*") (kill-buffer "*html*"))
+    (with-temp-buffer
+      (let ((fl (face-list))
+            (htmlize-css-name-prefix "org-")
+            (htmlize-output-type 'css)
+            f i)
+        (pop fl) ;; MZ: added this line.
+        (while (setq f (pop fl)
+                     i (and f (face-attribute f :inherit)))
+          (when (and (symbolp f) (or (not i) (not (listp i))))
+            (insert (org-add-props (copy-sequence "1") nil 'face f))))
+        (htmlize-region (point-min) (point-max))))
+    (pop-to-buffer-same-window "*html*")
+    (goto-char (point-min))
+    (when (re-search-forward "<style" nil t)
+      (delete-region (point-min) (match-beginning 0)))
+    (when (re-search-forward "</style>" nil t)
+      (delete-region (1+ (match-end 0)) (point-max)))
+    (beginning-of-line 1)
+    (when (looking-at " +") (replace-match ""))
+    (goto-char (point-min)))
+#+end_src
+
+** Nix Considerations
+In the Nix sandbox =$HOME= is a write-only "homeless shelter". As a result, certain file-path variables need to be set to relative locations in the working directory.
+#+begin_src emacs-lisp
+  (setq org-id-locations-file "org-id-locations"
+        org-publish-timestamp-directory "org-timestamps")
+#+end_src
+
+* Export to HTML
+As this is a website, the target of the Org export process is HTML.
+
+** Dates and Times
+Org has great features for manipulating timestamps, but they are not the most human-readable. On this site dates are rendered as "August 31 2000" and times as "2:12 pm on August 31 2000". They also don't have the surrounding =<>= which usually accompany Org timestamps.
+#+begin_src emacs-lisp
+  (setq mz/date-format "%B %e %Y"
+        mz/date-time-format "%l:%M %p on %B %e %Y")
+
+  (add-to-list 'org-export-filter-timestamp-functions
+               #'(lambda (timestamp backend _info)
+                   (cond
+                    ((org-export-derived-backend-p backend 'html)
+                     (replace-regexp-in-string "&[lg]t;\\|[][]" "" timestamp)))))
+#+end_src
+
+There are multiple variables to set for complete coverage.
+#+begin_src emacs-lisp
+  (setq-default org-display-custom-times t)
+
+  (setq org-export-date-timestamp-format mz/date-format
+        org-html-metadata-timestamp-format mz/date-format
+        org-time-stamp-custom-formats `(,mz/date-format . ,mz/date-time-format))
+#+end_src
+
+** Postamble
+A truly navigable site includes links back to higher-level pages of the site. Thus, each page has a link to the home page as well as to the 'Posts' site-map.
+#+begin_src emacs-lisp
+  (defun mz/org-source-link (plist)
+    "Create a link to the Git repo source of the given page to go in
+    the postamble navigation bar if the given page is not an
+    auto-generated site-map."
+    (let ((file-name (string-trim-left buffer-file-name "/build/source/")))
+      (if (and (string-match-p "index.org" file-name)
+               (not (string= "index.org" file-name)))
+          ""
+        (format "<a href=\"https://github.com/michzappa/dot-com/blob/master/%s\">Source</a>"
+                file-name))))
+
+  (defun mz/nav-bar (plist)
+    (format "<nav>
+      <a href=\"/\">/</a>
+      <a href=\"/posts/\">Posts</a>
+      %s
+      <span style=\"float: right;\">
+        <a href=\"https://creativecommons.org/licenses/by-sa/4.0/\">CC BY-SA 4.0</a>
+      </span>
+    </nav>
+    Published using <a href=\"/posts/publishing_this_site_with_emacs.html\"><code>emacs</code></a>."
+            (mz/org-source-link plist)))
+
+  (setq org-html-postamble #'(lambda (plist) (mz/nav-bar plist)))
+#+end_src
+
+** Site-maps
+Site-maps are =index.html='s for directories which list their constituent pages, and are generated at publish-time.
+
+For files which do not have a =#+date= property set,  =org-publish-find-date= always returns ='(0 1 0 0)= (0 UNIX seconds) - the modification time of every file in the Nix sandbox. This isn't terribly helpful, so I filter it out.
+#+begin_src emacs-lisp
+  (defun mz/org-sitemap-format-entry (entry _style project)
+    "Show the date of an ENTRY in the sitemap for PROJECT if one is
+  specified in the org file."
+    (let ((title (org-publish-find-title entry project))
+          (date  (org-publish-find-date entry project)))
+      (if (equal date '(0 1 0 0))
+          (format "[[file:%s][%s]]" entry title)
+        (format "[[file:%s][%s]] %s" entry title
+                (format-time-string "%Y-%m-%d" date)))))
+#+end_src
+
+** Styling
+=org-html-htmlize-generate-css= seems like it can be used to generate a unified aesthetic but there are a number of problems. The most fundamental one is that non-interactive Emacs, which is what's used to do the publishing, doesn't load faces. Thus, no inline CSS (the default method) is exported.
+
+To get around this, use separate CSS files and link them into each page.
+#+begin_src emacs-lisp
+  (setq org-html-head "<link rel=\"stylesheet\" href=\"/assets/source.css\"/>
+                       <link rel=\"stylesheet\" href=\"/assets/main.css\"/>"
+        org-html-head-include-default-style nil
+        org-html-head-include-scripts nil
+        org-html-htmlize-output-type 'css)
+#+end_src
+
+* Publishing
+This is where it all comes together. The =posts= sub-directory is where the content written in Org goes, and =assets= is where all non-Org files live.
+#+begin_src emacs-lisp
+  (setq org-publish-project-alist
+        `(("site" :components ("posts" "assets"))
+          ("posts"
+           :auto-sitemap t
+           :base-directory "./org"
+           :base-extension "org"
+           :htmlized-source t
+           :include ("../index.org")
+           :publishing-directory "./public/posts"
+           :publishing-function  org-html-publish-to-html
+           :recursive t
+           :section-numbers nil
+           :sitemap-filename "index.org"
+           :sitemap-format-entry mz/org-sitemap-format-entry
+           :sitemap-title "Posts"
+           :time-stamp-file nil
+           :with-author nil
+           :with-creator nil
+           :with-date nil
+           :with-title t
+           :with-toc nil)
+          ("assets"
+           :base-directory "./assets"
+           :base-extension "css"
+           :publishing-directory "./public/assets"
+           :publishing-function org-publish-attachment
+           :recursive t)))
+
+  (defun mz/publish-site ()
+    (org-publish "site"))
+#+end_src

@@ -1,0 +1,37 @@
+#+title: Flashing CalyxOS From NixOS
+
+/I am now using GrapheneOS and will not be updating these instructions./
+
+The requirements for flashing CalyxOS on a Linux computer, at the time of writing (<2022-07-31 Sun>), are:
+- have Android's =platform-tools= installed
+- a user in the group =adbusers=
+- appropriate =udev= rules
+
+These are all easily achievable on [[https://nixos.org/][NixOS]] with the following options:
+#+begin_src nix
+  {
+    programs.adb.enable = true;
+    services.udev.packages = [ pkgs.android-udev-rules ];
+    users.users.<name>.extraGroups = "adbusers";
+  }
+#+end_src
+
+However the default [[https://calyxos.org/install/devices/blueline/linux/][CalyxOS installation instructions]] (for my Pixel 3) do not work. This is because the flashing process pulls down pre-compiled =platform-tools= binaries into the working directory and is hard-coded to use them (pre-compiled binaries for Linux always assume [[https://refspecs.linuxfoundation.org/FHS_3.0/fhs/index.html][FHS]], and NixOS does not comply).
+
+An FHS environment /can/ be created by [[https://nixos.org/manual/nixpkgs/stable/#sec-fhs-environments][=BuildFHSEnv=]], but the user in that environment is anonymous and won't be part of the =adbusers= group.
+
+Thus, in any scenario where the user has the right permissions the local =platform-tools= binaries won't run, and in any scenario where the local =platform-tools= will run the user doesn't have the right permissions.
+
+Happily, =device-flasher= is [[https://gitlab.com/CalyxOS/device-flasher][open-source]]! The hard-coded local path can be found and removed, forcing it to use the globally-available =platform-tools= (which were compiled and installed appropriately for NixOS).
+#+begin_src diff
+        fmt.Println(platformToolsZip + " checksum verification failed")
+        return err
+    }
+-	platformToolsPath := cwd + string(os.PathSeparator) + "platform-tools" + string(os.PathSeparator)
++	platformToolsPath := ""
+    pathEnvironmentVariable := func() string {
+        if OS == "windows" {
+            return "Path"
+#+end_src
+
+I [[https://gitlab.com/michzappa/device-flasher][forked]] the repo and added this change (among other miscellany and a =flake.nix=). Now NixOS users can follow the CalyxOS instructions verbatim, other than substituting the default =device-flasher.linux= with the binary produced by =nix build gitlab:michzappa/device-flasher=!

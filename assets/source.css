@@ -1,0 +1,256 @@
+/*
+  This file contains styling for source blocks, cherry-picked from
+  `org-html-htmlize-generate-css`.
+*/
+
+.src {
+    border-radius: 10px;
+    border: 1px solid #362f35;
+    overflow: auto;
+    padding: 0.8em;
+}
+
+/* GENERAL */
+.org-builtin {
+    /* font-lock-builtin-face */
+    color: #a698ef;
+    font-weight: bold;
+}
+.org-comment {
+    /* font-lock-comment-face */
+    color: #c7a07f;
+    font-style: italic;
+}
+.org-comment-delimiter {
+    /* font-lock-comment-delimiter-face */
+    color: #c7a07f;
+    font-style: italic;
+}
+.org-constant {
+    /* font-lock-constant-face */
+    color: #e772df;
+}
+.org-doc {
+    /* font-lock-doc-face */
+    color: #c9addf;
+    font-style: italic;
+}
+.org-keyword {
+    /* font-lock-keyword-face */
+    color: #d37faf;
+    font-weight: bold;
+}
+.org-src-container {
+    padding-left: 1em;
+}
+.org-string {
+    /* font-lock-string-face */
+    color: #60bf88;
+}
+.org-type {
+    /* font-lock-type-face */
+    color: #8fcfdf;
+}
+.org-variable-name {
+    /* font-lock-variable-name-face */
+    color: #9ac2ff;
+}
+.org-underline {
+    /* underline */
+    text-decoration: underline;
+}
+
+/* DIFF MODE */
+.org-diff-added {
+    /* diff-added */
+    background-color: #00371f;
+}
+.org-diff-changed {
+    /* diff-changed */
+    background-color: #363300;
+}
+.org-diff-changed-unspecified {
+    /* diff-changed-unspecified */
+    background-color: #363300;
+}
+.org-diff-context {
+}
+.org-diff-error {
+    /* diff-error */
+    color: #ff7560;
+    font-weight: bold;
+}
+.org-diff-file-header {
+    /* diff-file-header */
+    font-weight: bold;
+}
+.org-diff-function {
+    /* diff-function */
+    background-color: #362f35;
+}
+.org-diff-header {
+}
+.org-diff-hunk-header {
+    /* diff-hunk-header */
+    background-color: #362f35;
+    font-weight: bold;
+}
+.org-diff-index {
+    /* diff-index */
+    font-style: italic;
+}
+.org-diff-indicator-added {
+    /* diff-indicator-added */
+    color: #60b444;
+    background-color: #00371f;
+    font-weight: bold;
+}
+.org-diff-indicator-changed {
+    /* diff-indicator-changed */
+    color: #d4a052;
+    background-color: #363300;
+    font-weight: bold;
+}
+.org-diff-indicator-removed {
+    /* diff-indicator-removed */
+    color: #ff7560;
+    background-color: #450f1f;
+    font-weight: bold;
+}
+.org-diff-nonexistent {
+    /* diff-nonexistent */
+    font-weight: bold;
+}
+.org-diff-refine-added {
+    /* diff-refine-added */
+    color: #ffffff;
+    background-color: #004c2f;
+}
+.org-diff-refine-changed {
+    /* diff-refine-changed */
+    color: #ffffff;
+    background-color: #4a4a00;
+}
+.org-diff-refine-removed {
+    /* diff-refine-removed */
+    color: #ffffff;
+    background-color: #641426;
+}
+.org-diff-removed {
+    /* diff-removed */
+    background-color: #450f1f;
+}
+
+/* NIX MODE */
+.org-nix-antiquote {
+    /* nix-antiquote-face */
+    color: #ff85aa;
+}
+.org-nix-attribute {
+    /* nix-attribute-face */
+    color: #9ac2ff;
+}
+.org-nix-builtin {
+    /* nix-builtin-face */
+    color: #a698ef;
+    font-weight: bold;
+}
+.org-nix-constant {
+    /* nix-constant-face */
+    color: #e772df;
+}
+.org-nix-keyword {
+    /* nix-keyword-face */
+    color: #d37faf;
+    font-weight: bold;
+}
+.org-nix-keyword-warning {
+    /* nix-keyword-warning-face */
+    color: #d4a052;
+}
+.org-nix-store-path {
+}
+
+/* TUAREG */
+.org-tuareg-font-double-semicolon {
+    /* tuareg-font-double-semicolon-face */
+    color: #ff4500;
+}
+.org-tuareg-font-lock-attribute {
+    /* tuareg-font-lock-attribute-face */
+    color: #ff85aa;
+}
+.org-tuareg-font-lock-constructor {
+    /* tuareg-font-lock-constructor-face */
+    color: #d8cfd5;
+    background-color: #160f0f;
+}
+.org-tuareg-font-lock-doc-markup {
+    /* tuareg-font-lock-doc-markup-face */
+    color: #e772df;
+}
+.org-tuareg-font-lock-doc-verbatim {
+}
+.org-tuareg-font-lock-error {
+    /* tuareg-font-lock-error-face */
+    color: #ffff00;
+    background-color: #ff0000;
+    font-weight: bold;
+}
+.org-tuareg-font-lock-extension-node {
+    /* tuareg-font-lock-extension-node-face */
+    color: #b0c4de;
+}
+.org-tuareg-font-lock-governing {
+    /* tuareg-font-lock-governing-face */
+    color: #f5deb3;
+    font-weight: bold;
+}
+.org-tuareg-font-lock-infix-extension-node {
+    /* tuareg-font-lock-infix-extension-node-face */
+    color: #ff85aa;
+}
+.org-tuareg-font-lock-interactive-directive {
+    /* tuareg-font-lock-interactive-directive-face */
+    color: #778899;
+}
+.org-tuareg-font-lock-interactive-error {
+    /* tuareg-font-lock-interactive-error-face */
+    color: #d4a052;
+}
+.org-tuareg-font-lock-interactive-output {
+    /* tuareg-font-lock-interactive-output-face */
+    color: #bebebe;
+}
+.org-tuareg-font-lock-label {
+    /* tuareg-font-lock-label-face */
+    color: #e772df;
+}
+.org-tuareg-font-lock-line-number {
+    /* tuareg-font-lock-line-number-face */
+    color: #999999;
+}
+.org-tuareg-font-lock-module {
+    /* tuareg-font-lock-module-face */
+    color: #8fcfdf;
+}
+.org-tuareg-font-lock-multistage {
+    /* tuareg-font-lock-multistage-face */
+    color: #4682b4;
+    background-color: #a9a9a9;
+    font-weight: bold;
+}
+.org-tuareg-font-lock-operator {
+    /* tuareg-font-lock-operator-face */
+    color: #f0e68c;
+}
+.org-tuareg-opam-error {
+    /* tuareg-opam-error-face */
+    color: #ff7560;
+    font-weight: bold;
+}
+.org-tuareg-opam-pkg-variable-name {
+    /* tuareg-opam-pkg-variable-name-face */
+    color: #9ac2ff;
+    font-style: italic;
+}

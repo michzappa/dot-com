@@ -1,0 +1,210 @@
+#+title: Klox
+
+[[https://gitlab.com/michzappa/klox][Klox]] is my implementation of [[*Lox][Lox]] in Kotlin. It was a straightforward port from the book's [[https://craftinginterpreters.com/a-tree-walk-interpreter.html][first interpreter]], largely due to Kotlin's similarity to Java.
+
+In addition to completing a number of the book's challenges (notably anonymous functions), I also extended the language by [[https://gitlab.com/michzappa/klox/-/commit/881cad085efa7d37689c039ef206cfa0d18fc110][adding a data structure]] which has the interface of a LISP-style linked list.
+#+begin_src lox
+var l = [1, 2, 3];
+#+end_src
+
+=cons=, =empty=, =first= and =rest= are native functions implemented in Kotlin - all other functionality is definable in Klox itself. Examples from the [[https://gitlab.com/michzappa/klox/-/blob/master/app/src/main/resources/stdlib.lox][standard library]]:
+#+begin_src lox
+  // f takes one argument
+  fun map(f, l) {
+    if (empty(l)) {
+      return l;
+    } else {
+      return cons(f(first(l)), map(f, rest(l)));
+    }
+  }
+
+  // f takes two arguments (list element, accumulated value)
+  fun foldr(f, acc, l) {
+    if (empty(l)) {
+      return acc;
+    } else {
+      return f(first(l), foldr(f, acc, rest(l)));
+    }
+  }
+
+  // f takes two arguments (list element, accumulated value)
+  fun foldl(f, acc, l) {
+    if (empty(l)) {
+      return acc;
+    } else {
+      return foldl(f, f(first(l), acc), rest(l));
+    }
+  }
+
+  fun get_nth(l, n) {
+    if (empty(l)) {
+      return nil;
+    } else {
+      // klox is 1-indexed
+      if (n == 1) {
+        return first(l);
+      } else {
+        return get_nth(rest(l), n - 1);
+      }
+    }
+  }
+
+  fun set_nth(l, n, x) {
+    if (empty(l)) {
+      if (n == 1) {
+        return [x];
+      } else {
+        // klox allows sparse lists
+        return cons(nil, set_nth([], n - 1, x));
+      }
+    } else {
+      if (n == 1) {
+        return cons(x, rest(l));
+      } else {
+        return cons(first(l), set_nth(rest(l), n - 1, x));
+      }
+    }
+  }
+#+end_src
+
+* Building with Nix
+The most straightforward way to build a Kotlin project with Nix is [[https://github.com/tadfisher/gradle2nix][=gradle2nix=]], though it has been unmaintained since <2021-03-10 Wed>. I use [[https://github.com/randomnetcat/gradle2nix][this fork]], which includes patches for use with current Nix and updated package repositories, and made [[https://gitlab.com/michzappa/nix-kt-template ][this template]] as a starting point for developing a Kotlin project with Nix.
+
+The Klox interpreter can be run via Nix with =nix run gitlab:michzappa/klox=.
+
+* GraalVM
+In addition to building the standard JVM artifacts, I [[https://gitlab.com/michzappa/klox/-/commit/40f768522d25313715ebb8599971d139ede84b20][added]] an option to use [[https://www.graalvm.org/][GraalVM]] and generate a native executable of the interpreter.
+
+The general GraalVM + [[https://gradle.org/][Gradle]] instructions can be followed, but a couple Nix-specific configurations were needed.
+- Set =GRAALVM_HOME= in the =devShell=
+#+begin_src diff
+modified   flake.nix
+   with inputs;
+   flake-utils.lib.eachDefaultSystem (system:
+     let
+       pkgs = (import nixpkgs { inherit system; });
+       buildGradle = pkgs.callPackage ./gradle-env.nix { };
++      graalvm = pkgs.graalvm17-ce;
+     in {
+       devShell = pkgs.mkShell {
+         buildInputs = with pkgs; [
++          graalvm
+           gradle
+           inputs.gradle2nix.packages.${system}.default
+           kotlin
+           kotlin-language-server
+           ktlint
+         ];
++        shellHook = ''
++          export GRAALVM_HOME=${graalvm};
++        '';
+       };
+#+end_src
+
+- Tell Gradle to blindly use =GRAALVM_HOME=, don't try to detect the location
+#+begin_src diff
+modified   app/build.gradle.kts
++  graalvmNative {
++      binaries {
++          named("main") {
++              // Disable native toolchain checking
++              buildArgs.add("-H:-CheckToolchain")
++              // Set executable name
++              imageName.set("klox")
++          }
++      }
++      // Just use GRAALVM_HOME for finding the GraalVM installation
++      toolchainDetection.set(false)
++  }
+#+end_src
+
+- Create additional flake output
+#+begin_src diff
+modified   flake.nix
++  native = buildGradle {
++    configurePhase = ''
++      export GRAALVM_HOME=${graalvm};
++    '';
++    envSpec = ./gradle-env.json;
++    gradleFlags = [ "nativeCompile" ];
++    installPhase = ''
++      mkdir -p $out/bin
++      cp app/build/native/nativeCompile/klox $out/bin
++    '';
++    nativeBuildInputs = [ graalvm ];
++    pname = "klox";
++    src = ./.;
++    version = "native";
++  };
+#+end_src
+
+The native executable is anecdotally faster than the JVM artifacts, even with the startup overhead of the JVM taken into account. The speedup was particularly noticable on highly recursive programs like a naïve Fibonacci implementation.
+
+The Klox interpreter native executable can be run via Nix with =nix run gitlab:michzappa/klox#native=.
+
+* Scheme Backend
+I also tried to make an additional back-end for Klox which [[https://gitlab.com/michzappa/klox/-/tree/compiler][compiled it to Scheme]]. It was a fun exercise, though I ultimately gave up on trying to smush the side-effects and statements of Klox into the purity and expressions of Scheme. Perhaps [[https://common-lisp.net/][Common Lisp]] would have been a better target...
+
+* Lox
+The [[https://craftinginterpreters.com/the-lox-language.html][Lox programming language]] is the language described and implemented by the venerable [[https://craftinginterpreters.com/][Crafting Interpreters]] book. The language's syntax and semantics are C/JavaScript-like - it is object-oriented and dynamically typed.
+
+** Variable Assignment
+#+begin_src lox
+  var imAVariable = "here is my value";
+  imAVariable = "now it's this!";
+
+  var meToo;
+  meToo = "my first value!";
+#+end_src
+
+** Loops
+#+begin_src lox
+  var a = 1;
+  while (a < 10) {
+    print a;
+    a = a + 1;
+  }
+
+  for (var a = 1; a < 10; a = a + 1) {
+    print a;
+  }
+#+end_src
+
+** Functions
+=print= is a built-in statement.
+#+begin_src lox
+  fun sum(a, b) {
+    print a + b;
+  }
+#+end_src
+
+** Classes
+#+begin_src lox
+  class Breakfast {
+    cook() {
+      print "Eggs a-fryin'!";
+    }
+
+    serve(who) {
+      print "Enjoy your breakfast, " + who + ".";
+    }
+  }
+
+  var breakfast = Breakfast();
+  breakfast.cook();
+  breakfast.serve("me");
+#+end_src
+
+** Inheritance
+#+begin_src lox
+  class Brunch < Breakfast {
+    init(meat, bread, drink) {
+      super.init(meat, bread);
+      this.drink = drink;
+    }
+
+    server(who) {
+      print "Enjoy your brunch, " + who + ".";
+    }
+  }
+#+end_src
